@@ -1,0 +1,37 @@
+# Local environments
+.env
+.idea/
+.vscode/
+
+# Build artifacts and Go binaries
+dist/
+tmp/
+transaction-service
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+env/
+
+# Java
+target/
+*.jar
+*.log
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfstate*
+terraform.tfvars
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# OS specific
+.DS_Store
+Thumbs.db
