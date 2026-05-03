@@ -9,64 +9,170 @@
         .card { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         button { background-color: #4CAF50; color: white; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer; }
         button:hover { background-color: #45a049; }
-        .result { margin-top: 10px; padding: 10px; background-color: #eef1f1; border-radius: 4px; font-family: monospace; }
+        input { padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; }
+        .result { margin-top: 10px; padding: 10px; background-color: #eef1f1; border-radius: 4px; font-family: monospace; word-wrap: break-word; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
     <h1>💰 KubeWealth Dashboard</h1>
     
-    <div class="card">
-        <h3>1. Transaction Service (Go)</h3>
-        <button onclick="triggerTransaction()">Trigger Transfer</button>
-        <div id="trans-result" class="result">Click the button to send a transaction.</div>
+    <div class="card" id="login-section">
+        <h3>System Login (Java Identity Service)</h3>
+        <input type="text" id="username" placeholder="Username (atharv)" value="atharv"><br>
+        <input type="password" id="password" placeholder="Password (password123)" value="password123"><br>
+        <button onclick="performLogin()">Login</button>
+        <div id="login-result" class="result">Please log in to receive your JWT.</div>
     </div>
 
-    <div class="card">
-        <h3>2. Balance Service (Python)</h3>
-        <button onclick="fetchBalance()">Get Balance for 'atharv'</button>
-        <div id="bal-result" class="result">Click to fetch balance.</div>
-    </div>
+    <div id="secure-section" class="hidden">
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; background: white; padding: 10px 20px; border-radius: 8px; margin-bottom: 20px;">
+            <div id="token-display" style="font-family: monospace; font-size: 12px; color: #666;"></div>
+            <button onclick="logout()" style="background-color: #d9534f; padding: 5px 10px;">Logout</button>
+        </div>
 
-    <div class="card">
-        <h3>3. Identity Service (Java)</h3>
-        <button onclick="fetchAuth()">Test Authentication</button>
-        <div id="auth-result" class="result">Click to test authentication.</div>
+        <div class="card">
+            <h3>1. Mutual Fund Screener (Python + mfapi.in)</h3>
+            
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input type="text" id="search-query" placeholder="e.g. Flexi Cap" style="flex: 1;">
+                
+                <select id="filter-amc" style="padding: 8px; border-radius: 4px;">
+                    <option value="All">All AMCs</option>
+                    <option value="SBI">SBI Mutual Fund</option>
+                    <option value="HDFC">HDFC Mutual Fund</option>
+                    <option value="ICICI">ICICI Prudential</option>
+                    <option value="Axis">Axis Mutual Fund</option>
+                    <option value="Parag Parikh">Parag Parikh</option>
+                </select>
+
+                <select id="filter-aum" style="padding: 8px; border-radius: 4px;">
+                    <option value="All">All AUM Sizes</option>
+                    <option value="0-10000">Below ₹10,000 Cr</option>
+                    <option value="10000-50000">₹10K - ₹50K Cr</option>
+                    <option value=">50000">Above ₹50,000 Cr</option>
+                </select>
+
+                <button onclick="searchFunds()" style="background-color: #007bff;">Search</button>
+            </div>
+
+            <div id="search-results" class="result" style="max-height: 200px; overflow-y: auto;">
+                Search results will appear here...
+            </div>
+        </div>
+
+        <div class="card" style="border-left: 5px solid #4CAF50;">
+            <h3>2. Portfolio Watchlist (Go + PostgreSQL)</h3>
+            <p><strong>Selected Scheme:</strong> <span id="selected-scheme-name" style="color: #666;">None selected</span></p>
+            <input type="hidden" id="selected-scheme-code">
+            
+            <button onclick="bookmarkScheme()" style="width: 100%;">Bookmark Selected Scheme</button>
+            <div id="bookmark-result" class="result">Awaiting action...</div>
+        </div>
     </div>
 
     <script>
-        // We no longer specify ports. All requests go to the Nginx proxy on port 80.
         const API_BASE = "/api";
 
-        async function triggerTransaction() {
-            try {
-                // Nginx sees /api/transfer and routes it internally to transaction:8080
-                const response = await fetch(`${API_BASE}/transfer`, { method: 'POST' });
-                const data = await response.text();
-                document.getElementById('trans-result').innerText = data;
-            } catch (e) {
-                document.getElementById('trans-result').innerText = "Error calling Transaction Service";
+        window.onload = function() {
+            const savedToken = localStorage.getItem('jwt_token');
+            if (savedToken) {
+                document.getElementById('login-section').classList.add('hidden');
+                document.getElementById('secure-section').classList.remove('hidden');
+                document.getElementById('token-display').innerText = "Auth: " + savedToken.substring(0, 20) + "...";
             }
-        }
+        };
 
-        async function fetchBalance() {
+        async function performLogin() {
+            // [Keep your existing performLogin() logic here]
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
             try {
-                // Nginx sees /api/balance/atharv and routes it internally to balance:8000
-                const response = await fetch(`${API_BASE}/balance/atharv`);
+                const response = await fetch(`${API_BASE}/auth/login`, { 
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass })
+                });
                 const data = await response.json();
-                document.getElementById('bal-result').innerText = JSON.stringify(data, null, 2);
+                if (data.status === "success") {
+                    localStorage.setItem('jwt_token', data.token);
+                    location.reload(); // Reload to trigger window.onload
+                } else {
+                    document.getElementById('login-result').innerText = "Login Failed";
+                }
+            } catch (e) { document.getElementById('login-result').innerText = "Error"; }
+        }
+
+        function logout() {
+            localStorage.removeItem('jwt_token');
+            location.reload();
+        }
+
+        function getAuthHeaders() {
+            return { 'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`, 'Content-Type': 'application/json' };
+        }
+
+        // --- NEW: Python Search Logic ---
+        async function searchFunds() {
+            const q = document.getElementById('search-query').value;
+            const amc = document.getElementById('filter-amc').value;
+            const aum = document.getElementById('filter-aum').value;
+            const resDiv = document.getElementById('search-results');
+            
+            resDiv.innerHTML = "Searching...";
+
+            try {
+                const response = await fetch(`${API_BASE}/search?q=${q}&amc=${amc}&aum=${aum}`, { headers: getAuthHeaders() });
+                const data = await response.json();
+                
+                if (data.results.length === 0) {
+                    resDiv.innerHTML = "No funds found matching criteria.";
+                    return;
+                }
+
+                let html = '<ul style="list-style: none; padding: 0;">';
+                data.results.forEach(fund => {
+                    html += `<li style="padding: 10px; border-bottom: 1px solid #ddd; cursor: pointer;" 
+                                 onclick="selectFund('${fund.scheme_code}', '${fund.name.replace(/'/g, "\\'")}')">
+                                <strong>${fund.name}</strong><br>
+                                <small>AMC: ${fund.amc} | AUM: ₹${fund.aum_cr}Cr | ER: ${fund.expense_ratio}%</small>
+                             </li>`;
+                });
+                html += '</ul>';
+                resDiv.innerHTML = html;
             } catch (e) {
-                document.getElementById('bal-result').innerText = "Error calling Balance Service";
+                resDiv.innerText = "Error calling Python Screener Service";
             }
         }
 
-        async function fetchAuth() {
+        // --- NEW: UI Selection Logic ---
+        function selectFund(code, name) {
+            document.getElementById('selected-scheme-code').value = code;
+            document.getElementById('selected-scheme-name').innerText = name;
+            document.getElementById('selected-scheme-name').style.color = "black";
+            document.getElementById('bookmark-result').innerText = "Ready to bookmark.";
+        }
+
+        // --- NEW: Go Bookmark Logic ---
+        async function bookmarkScheme() {
+            const code = document.getElementById('selected-scheme-code').value;
+            const name = document.getElementById('selected-scheme-name').innerText;
+
+            if (!code) {
+                document.getElementById('bookmark-result').innerText = "Please select a fund from the search results first.";
+                return;
+            }
+
             try {
-                // Nginx sees /api/auth and routes it internally to identity:8080
-                const response = await fetch(`${API_BASE}/auth`);
+                const response = await fetch(`${API_BASE}/bookmark`, { 
+                    method: 'POST', 
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ scheme_code: code, scheme_name: name })
+                });
                 const data = await response.text();
-                document.getElementById('auth-result').innerText = data;
+                document.getElementById('bookmark-result').innerText = data;
             } catch (e) {
-                document.getElementById('auth-result').innerText = "Error calling Identity Service";
+                document.getElementById('bookmark-result').innerText = "Error calling Go Watchlist Service";
             }
         }
     </script>
