@@ -35,3 +35,4 @@ override.tf.json
 # OS specific
 .DS_Store
 Thumbs.db
+terraform/tfplan
